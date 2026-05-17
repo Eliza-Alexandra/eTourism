@@ -13,15 +13,12 @@ var connectionString = builder.Configuration.GetConnectionString("eTourismWebApp
 builder.Services.AddDbContext<eTourismWebAppContext>(options =>
     options.UseNpgsql(connectionString));
 
-
 builder.Services.AddDefaultIdentity<IdentityUser>(options =>
     {
-        options.SignIn.RequireConfirmedAccount = false; // în dev poți pune false
-        
-        // Configure lockout settings
-        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15); // Lockout duration
-        options.Lockout.MaxFailedAccessAttempts = 5; // Maximum failed attempts before lockout
-        options.Lockout.AllowedForNewUsers = true; // Enable lockout for new users
+        options.SignIn.RequireConfirmedAccount = false;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.AllowedForNewUsers = true;
     })
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<eTourismWebAppContext>();
@@ -33,8 +30,7 @@ builder.Services.AddAuthentication()
         options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
     });
 
-
-builder.Services.AddRazorPages(); // <- NECESAR pentru /Identity/Account/*
+builder.Services.AddRazorPages();
 builder.Services.AddAuthorization();
 
 builder.Services.AddRazorComponents()
@@ -42,7 +38,6 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddMudServices();
 
-// Dashboard and Chart Services
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IChartService, ChartService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
@@ -52,21 +47,24 @@ var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
 
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+// ✔ Varianta corectă pentru .NET 8
+app.UseStatusCodePagesWithReExecute("/not-found");
+
 app.UseHttpsRedirection();
 
-app.MapStaticAssets();
+// ✔ În .NET 8 se folosește UseStaticFiles(), nu MapStaticAssets()
+app.UseStaticFiles();
 
 app.UseAntiforgery();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapRazorPages(); // <- expune /Identity/Account/Login, Register, Logout
+app.MapRazorPages();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
