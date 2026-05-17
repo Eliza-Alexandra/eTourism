@@ -1,0 +1,405 @@
+@page "/AdminObiective"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using eTourismWebApp.Data
+@rendermode InteractiveServer
+@inject eTourismWebAppContext DbContext
+@inject IWebHostEnvironment Environment
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Administrare obiective</PageTitle>
+
+<style>
+    .admin-obiective-grid {
+        display: grid;
+        grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+    }
+
+    .admin-obiective-form,
+    .admin-obiective-list {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 18px;
+        background: #fff;
+    }
+
+    .admin-obiective-thumb {
+        width: 96px;
+        height: 64px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+        background: #f8f9fa;
+    }
+
+    .admin-obiective-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    @@media (max-width: 992px) {
+        .admin-obiective-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<h1 class="mb-4">Administrarea obiectivelor turistice</h1>
+
+@if (!string.IsNullOrWhiteSpace(statusMessage))
+{
+    <div class="alert @statusCssClass" role="alert">
+        @statusMessage
+    </div>
+}
+
+<div class="admin-obiective-grid">
+    <section class="admin-obiective-form">
+        <h5 class="mb-3">@FormTitle</h5>
+
+        <form @onsubmit="SaveObiectivAsync" @onsubmit:preventDefault="true">
+            <div class="mb-3">
+                <label class="form-label" for="denumire">Denumire</label>
+                <input id="denumire" class="form-control" @bind="formModel.Denumire" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="adresa">Adresa</label>
+                <input id="adresa" class="form-control" @bind="formModel.Adresa" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="categorie">Tip obiectiv</label>
+                <select id="categorie" class="form-select" @bind="formModel.IdCategorie">
+                    <option value="0">Alege categoria</option>
+                    @foreach (var categorie in categorii)
+                    {
+                        <option value="@categorie.IdCategorie">@categorie.NumeCategorie</option>
+                    }
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="detalii">Detalii</label>
+                <textarea id="detalii" class="form-control" rows="5" @bind="formModel.Detalii"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="imagine">Fotografie caracteristica</label>
+                <InputFile id="imagine" class="form-control" OnChange="OnImageSelected" accept="image/*" />
+                @if (!string.IsNullOrWhiteSpace(formModel.Imagine))
+                {
+                    <div class="mt-2">
+                        <img class="admin-obiective-thumb" src="@GetImageUrl(formModel.Imagine)" alt="@formModel.Denumire" />
+                        <span class="ms-2 text-muted">@formModel.Imagine</span>
+                    </div>
+                }
+            </div>
+
+            <div class="admin-obiective-actions">
+                <button type="submit" class="btn btn-primary">@SubmitText</button>
+                @if (editId.HasValue)
+                {
+                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetForm">Anuleaza</button>
+                }
+            </div>
+        </form>
+    </section>
+
+    <section class="admin-obiective-list">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Obiective existente</h5>
+            <span class="badge bg-secondary">@obiective.Count</span>
+        </div>
+
+        @if (isLoading)
+        {
+            <p><em>Se încarcă obiectivele...</em></p>
+        }
+        else if (!obiective.Any())
+        {
+            <p><em>Nu există obiective turistice.</em></p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead>
+                    <tr>
+                        <th>Foto</th>
+                        <th>Denumire</th>
+                        <th>Tip</th>
+                        <th>Adresa</th>
+                        <th>Actiuni</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var obiectiv in obiective)
+                    {
+                        <tr>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(obiectiv.Imagine))
+                                {
+                                    <img class="admin-obiective-thumb" src="@GetImageUrl(obiectiv.Imagine)" alt="@obiectiv.Denumire" />
+                                }
+                            </td>
+                            <td>@obiectiv.Denumire</td>
+                            <td>@obiectiv.Categorie?.NumeCategorie</td>
+                            <td>@obiectiv.Adresa</td>
+                            <td>
+                                <div class="admin-obiective-actions">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => StartEdit(obiectiv)">Editeaza</button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => DeleteObiectivAsync(obiectiv.Id)">Sterge</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private const long MaxImageSize = 5 * 1024 * 1024;
+
+    private readonly ObiectivFormModel formModel = new();
+    private readonly List<Obiectiv> obiective = new();
+    private readonly List<CategorieObiectiv> categorii = new();
+    private IBrowserFile? selectedImage;
+    private int? editId;
+    private bool isLoading = true;
+    private string? statusMessage;
+    private string statusCssClass = "alert-success";
+
+    private string FormTitle => editId.HasValue ? "Editare obiectiv" : "Adauga obiectiv";
+    private string SubmitText => editId.HasValue ? "Salveaza modificarile" : "Adauga obiectiv";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadObiectiveAsync();
+    }
+
+    private async Task LoadObiectiveAsync()
+    {
+        isLoading = true;
+        obiective.Clear();
+        categorii.Clear();
+
+        categorii.AddRange(await DbContext.CategoriiObiective
+            .AsNoTracking()
+            .OrderBy(c => c.NumeCategorie)
+            .ToListAsync());
+
+        obiective.AddRange(await DbContext.Obiective
+            .AsNoTracking()
+            .Include(o => o.Categorie)
+            .OrderBy(o => o.Denumire)
+            .ToListAsync());
+
+        isLoading = false;
+    }
+
+    private void OnImageSelected(InputFileChangeEventArgs args)
+    {
+        selectedImage = args.File;
+    }
+
+    private async Task SaveObiectivAsync()
+    {
+        if (string.IsNullOrWhiteSpace(formModel.Denumire) ||
+            string.IsNullOrWhiteSpace(formModel.Adresa) ||
+            string.IsNullOrWhiteSpace(formModel.Detalii) ||
+            formModel.IdCategorie <= 0)
+        {
+            SetStatus("Completează denumirea, adresa, detaliile și tipul obiectivului.", false);
+            return;
+        }
+
+        var imageName = formModel.Imagine;
+
+        if (selectedImage is not null)
+        {
+            try
+            {
+                imageName = await SaveImageAsync(selectedImage);
+            }
+            catch (InvalidOperationException ex)
+            {
+                SetStatus(ex.Message, false);
+                return;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(imageName))
+        {
+            SetStatus("Alege o fotografie pentru obiectiv.", false);
+            return;
+        }
+
+        if (editId.HasValue)
+        {
+            var obiectiv = await DbContext.Obiective.FindAsync(editId.Value);
+
+            if (obiectiv is null)
+            {
+                SetStatus("Obiectivul selectat nu mai există.", false);
+                ResetForm();
+                await LoadObiectiveAsync();
+                return;
+            }
+
+            var oldImage = obiectiv.Imagine;
+
+            obiectiv.Denumire = formModel.Denumire.Trim();
+            obiectiv.Adresa = formModel.Adresa.Trim();
+            obiectiv.Detalii = formModel.Detalii.Trim();
+            obiectiv.Imagine = imageName;
+            obiectiv.IdCategorie = formModel.IdCategorie;
+
+            await DbContext.SaveChangesAsync();
+
+            if (selectedImage is not null && !string.Equals(oldImage, imageName, StringComparison.OrdinalIgnoreCase))
+            {
+                DeleteImage(oldImage);
+            }
+
+            SetStatus("Obiectivul a fost actualizat.", true);
+        }
+        else
+        {
+            DbContext.Obiective.Add(new Obiectiv
+            {
+                Denumire = formModel.Denumire.Trim(),
+                Adresa = formModel.Adresa.Trim(),
+                Detalii = formModel.Detalii.Trim(),
+                Imagine = imageName,
+                IdCategorie = formModel.IdCategorie
+            });
+
+            await DbContext.SaveChangesAsync();
+            SetStatus("Obiectivul a fost adaugat.", true);
+        }
+
+        ResetForm();
+        await LoadObiectiveAsync();
+    }
+
+    private void StartEdit(Obiectiv obiectiv)
+    {
+        editId = obiectiv.Id;
+        selectedImage = null;
+        formModel.Denumire = obiectiv.Denumire;
+        formModel.Adresa = obiectiv.Adresa;
+        formModel.Detalii = obiectiv.Detalii;
+        formModel.Imagine = obiectiv.Imagine;
+        formModel.IdCategorie = obiectiv.IdCategorie;
+        statusMessage = null;
+    }
+
+    private async Task DeleteObiectivAsync(int id)
+    {
+        var obiectiv = await DbContext.Obiective.FindAsync(id);
+
+        if (obiectiv is null)
+        {
+            SetStatus("Obiectivul selectat nu mai există.", false);
+            await LoadObiectiveAsync();
+            return;
+        }
+
+        DbContext.Obiective.Remove(obiectiv);
+        await DbContext.SaveChangesAsync();
+        DeleteImage(obiectiv.Imagine);
+
+        if (editId == id)
+        {
+            ResetForm();
+        }
+
+        SetStatus("Obiectivul a fost sters.", true);
+        await LoadObiectiveAsync();
+    }
+
+    private async Task<string> SaveImageAsync(IBrowserFile file)
+    {
+        if (file.Size > MaxImageSize)
+        {
+            throw new InvalidOperationException("Fotografia trebuie sa aiba cel mult 5 MB.");
+        }
+
+        var extension = Path.GetExtension(file.Name).ToLowerInvariant();
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+
+        if (!allowedExtensions.Contains(extension))
+        {
+            throw new InvalidOperationException("Formatul fotografiei trebuie sa fie JPG, PNG, WEBP sau GIF.");
+        }
+
+        var fileName = $"{Guid.NewGuid():N}{extension}";
+        var directoryPath = Path.Combine(Environment.WebRootPath, "images", "obiective");
+        Directory.CreateDirectory(directoryPath);
+
+        var filePath = Path.Combine(directoryPath, fileName);
+
+        await using var stream = File.Create(filePath);
+        await file.OpenReadStream(MaxImageSize).CopyToAsync(stream);
+
+        return fileName;
+    }
+
+    private void DeleteImage(string? imageName)
+    {
+        if (string.IsNullOrWhiteSpace(imageName))
+        {
+            return;
+        }
+
+        var fileName = Path.GetFileName(imageName);
+        var filePath = Path.Combine(Environment.WebRootPath, "images", "obiective", fileName);
+
+        if (File.Exists(filePath))
+        {
+            File.Delete(filePath);
+        }
+    }
+
+    private string GetImageUrl(string imageName)
+    {
+        return $"/images/obiective/{Path.GetFileName(imageName)}";
+    }
+
+    private void ResetForm()
+    {
+        editId = null;
+        selectedImage = null;
+        formModel.Denumire = string.Empty;
+        formModel.Adresa = string.Empty;
+        formModel.Detalii = string.Empty;
+        formModel.Imagine = string.Empty;
+        formModel.IdCategorie = 0;
+    }
+
+    private void SetStatus(string message, bool isSuccess)
+    {
+        statusMessage = message;
+        statusCssClass = isSuccess ? "alert-success" : "alert-danger";
+    }
+
+    private sealed class ObiectivFormModel
+    {
+        public string Denumire { get; set; } = string.Empty;
+
+        public string Adresa { get; set; } = string.Empty;
+
+        public string Detalii { get; set; } = string.Empty;
+
+        public string Imagine { get; set; } = string.Empty;
+
+        public int IdCategorie { get; set; }
+    }
+}

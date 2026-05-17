@@ -1,0 +1,60 @@
+<MudCard Elevation="2" Class="notification-stats-card">
+    <MudCardContent Class="pa-3">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon 
+                Icon="@Icon" 
+                Size="Size.Large" 
+                Color="@Color"
+                Class="stats-icon"/>
+            
+            <MudText Typo="Typo.h4" Color="Color.Dark" Class="stats-value">
+                @Value
+            </MudText>
+            
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="stats-title">
+                @Title
+            </MudText>
+        </MudStack>
+    </MudCardContent>
+</MudCard>
+
+<style>
+    .notification-stats-card {
+        text-align: center;
+        transition: all 0.3s ease;
+        border-left: 4px solid;
+    }
+    
+    .notification-stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .stats-icon {
+        opacity: 0.9;
+    }
+    
+    .stats-value {
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    
+    .stats-title {
+        font-weight: 500;
+        opacity: 0.8;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Value { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Icon { get; set; } = Icons.Material.Filled.Info;
+
+    [Parameter]
+    public Color Color { get; set; } = Color.Primary;
+}

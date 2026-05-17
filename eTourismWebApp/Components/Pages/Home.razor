@@ -1,0 +1,41 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject NavigationManager _navigationManager
+
+<MudPaper Elevation="0" Class="home-background">
+
+    <div class="dark-overlay">
+
+        <MudStack Justify="Justify.Center" AlignItems="AlignItems.Center" Style="height: 100vh; text-align:center; padding:30px;">
+
+            <MudText Typo="Typo.h2" Color="Color.Tertiary">
+                Descoperă Brașovul
+            </MudText>
+
+            <MudText Typo="Typo.h6"
+                     Class="mt-4"
+                     Style="max-width: 800px; color: white;">
+
+                Brașovul este una dintre cele mai apreciate destinații turistice din România,
+                combinând patrimoniul istoric cu peisajele montane spectaculoase.
+                Orașul oferă acces la obiective culturale și istorice importante,
+                stațiuni montane, trasee turistice, activități recreative și experiențe culinare autentice.
+
+            </MudText>
+
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Tertiary"
+                       Size="Size.Large"
+                       Href="/obiective"
+                       Class="mt-6">
+
+                Explorează obiectivele turistice
+
+            </MudButton>
+
+        </MudStack>
+
+    </div>
+
+</MudPaper>

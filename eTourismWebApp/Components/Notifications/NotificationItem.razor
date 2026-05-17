@@ -1,0 +1,245 @@
+@using eTourismWebApp.Components.Pages
+
+@{
+    var itemClass = $"notification-item {(Notification.IsRead ? "read" : "unread")}";
+}
+
+<MudListItem T="Notificari.Notification" Class="@itemClass" OnClick="OnItemClick" Style="cursor: pointer;">
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start">
+        <!-- Checkbox for selection -->
+        <MudCheckBox T="bool" @bind-Checked="@isSelected" 
+                     OnChange="OnSelectionChange"
+                     Class="mt-1"/>
+        
+        <!-- Icon based on type -->
+        <MudIcon 
+            Icon="@GetNotificationIcon()" 
+            Color="@GetNotificationColor()"
+            Size="Size.Medium"
+            Class="notification-icon"/>
+        
+        <!-- Content -->
+        <MudStack Spacing="1" Class="flex-grow-1">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                @{
+    var titleClass = $"notification-title {(Notification.IsRead ? "" : "font-weight-bold")}";
+}
+                <MudText Typo="Typo.subtitle2" Class="@titleClass">
+                    @Notification.Title
+                </MudText>
+                
+                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                    <!-- Priority Badge -->
+                    <MudChip T="string" Size="Size.Small" Color="@GetPriorityColor()" Class="priority-chip">
+                        @GetPriorityLabel()
+                    </MudChip>
+                    
+                    <!-- Actions -->
+                    <MudStack Row="true" Spacing="0">
+                        @if (!Notification.IsRead)
+                        {
+                            <MudIconButton 
+                                Icon="@Icons.Material.Filled.MarkEmailRead" 
+                                Size="Size.Small" 
+                                Color="Color.Inherit"
+                                OnClick="() => OnRead.InvokeAsync()"
+                                Title="Marchează ca citit"/>
+                        }
+                        
+                        <MudIconButton 
+                            Icon="@Icons.Material.Filled.Delete" 
+                            Size="Size.Small" 
+                            Color="Color.Error"
+                            OnClick="() => OnDelete.InvokeAsync()"
+                            Title="Șterge"/>
+                    </MudStack>
+                </MudStack>
+            </MudStack>
+            
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="notification-message">
+                @Notification.Message
+            </MudText>
+            
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @GetFormattedDate()
+                    </MudText>
+                    
+                    @if (!string.IsNullOrEmpty(Notification.Source))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            • @Notification.Source
+                        </MudText>
+                    }
+                </MudStack>
+                
+                @if (!Notification.IsRead)
+                {
+                    <div class="unread-indicator"></div>
+                }
+            </MudStack>
+        </MudStack>
+    </MudStack>
+</MudListItem>
+
+<style>
+    .notification-item {
+        border-bottom: 1px solid #e0e0e0;
+        padding: 12px 16px;
+        transition: all 0.2s ease;
+    }
+    
+    .notification-item:hover {
+        background-color: #f5f5f5;
+    }
+    
+    .notification-item.unread {
+        background-color: #f8f9fa;
+        border-left: 4px solid #1976d2;
+    }
+    
+    .notification-item.read {
+        opacity: 0.8;
+    }
+    
+    .notification-icon {
+        margin-top: 2px;
+    }
+    
+    .notification-title {
+        line-height: 1.4;
+    }
+    
+    .notification-message {
+        line-height: 1.4;
+        margin-bottom: 4px;
+    }
+    
+    .priority-chip {
+        font-size: 10px;
+        height: 20px;
+    }
+    
+    .unread-indicator {
+        width: 8px;
+        height: 8px;
+        background-color: #1976d2;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+    
+    @@keyframes pulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(25, 118, 210, 0.7);
+        }
+        70% {
+            box-shadow: 0 0 0 6px rgba(25, 118, 210, 0);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(25, 118, 210, 0);
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public Notificari.Notification Notification { get; set; } = new();
+
+    [Parameter]
+    public EventCallback OnRead { get; set; }
+
+    [Parameter]
+    public EventCallback OnDelete { get; set; }
+
+    [Parameter]
+    public EventCallback OnSelect { get; set; }
+
+    [Parameter]
+    public bool IsSelected { get; set; }
+
+    private bool isSelected = false;
+
+    protected override void OnParametersSet()
+    {
+        isSelected = IsSelected;
+    }
+
+    private void OnItemClick()
+    {
+        OnSelect.InvokeAsync();
+    }
+
+    private void OnSelectionChange(bool isChecked)
+    {
+        isSelected = isChecked;
+        OnSelect.InvokeAsync();
+    }
+
+    private string GetNotificationIcon()
+    {
+        return Notification.Type switch
+        {
+            "Info" => Icons.Material.Filled.Info,
+            "Success" => Icons.Material.Filled.CheckCircle,
+            "Warning" => Icons.Material.Filled.Warning,
+            "Error" => Icons.Material.Filled.Error,
+            "Critical" => Icons.Material.Filled.CrisisAlert,
+            _ => Icons.Material.Filled.Notifications
+        };
+    }
+
+    private Color GetNotificationColor()
+    {
+        return Notification.Type switch
+        {
+            "Info" => Color.Info,
+            "Success" => Color.Success,
+            "Warning" => Color.Warning,
+            "Error" => Color.Error,
+            "Critical" => Color.Error,
+            _ => Color.Secondary
+        };
+    }
+
+    private Color GetPriorityColor()
+    {
+        return Notification.Priority switch
+        {
+            "Low" => Color.Secondary,
+            "Medium" => Color.Primary,
+            "High" => Color.Warning,
+            "Urgent" => Color.Error,
+            _ => Color.Secondary
+        };
+    }
+
+    private string GetPriorityLabel()
+    {
+        return Notification.Priority switch
+        {
+            "Low" => "Scăzut",
+            "Medium" => "Mediu",
+            "High" => "Ridicat",
+            "Urgent" => "Urgent",
+            _ => Notification.Priority
+        };
+    }
+
+    private string GetFormattedDate()
+    {
+        var now = DateTime.Now;
+        var diff = now - Notification.CreatedAt;
+
+        if (diff.TotalMinutes < 1)
+            return "Acum";
+        if (diff.TotalMinutes < 60)
+            return $"Acum {(int)diff.TotalMinutes} min";
+        if (diff.TotalHours < 24)
+            return $"Acum {(int)diff.TotalHours} ore";
+        if (diff.TotalDays < 7)
+            return $"Acum {(int)diff.TotalDays} zile";
+        
+        return Notification.CreatedAt.ToString("dd MMM yyyy");
+    }
+}

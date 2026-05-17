@@ -1,0 +1,377 @@
+@page "/AdminCazari"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using eTourismWebApp.Data
+@rendermode InteractiveServer
+@inject eTourismWebAppContext DbContext
+@inject IWebHostEnvironment Environment
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Administrare cazări</PageTitle>
+
+<style>
+    .admin-cazari-grid {
+        display: grid;
+        grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+    }
+
+    .admin-cazari-form,
+    .admin-cazari-list {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 18px;
+        background: #fff;
+    }
+
+    .admin-cazari-thumb {
+        width: 96px;
+        height: 64px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+        background: #f8f9fa;
+    }
+
+    .admin-cazari-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    @@media (max-width: 992px) {
+        .admin-cazari-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<h1 class="mb-4">Administrarea cazărilor</h1>
+
+@if (!string.IsNullOrWhiteSpace(statusMessage))
+{
+    <div class="alert @statusCssClass" role="alert">
+        @statusMessage
+    </div>
+}
+
+<div class="admin-cazari-grid">
+    <section class="admin-cazari-form">
+        <h5 class="mb-3">@FormTitle</h5>
+
+        <form @onsubmit="SaveCazareAsync" @onsubmit:preventDefault="true">
+            <div class="mb-3">
+                <label class="form-label" for="denumire">Denumire</label>
+                <input id="denumire" class="form-control" @bind="formModel.Nume" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="adresa">Adresa</label>
+                <input id="adresa" class="form-control" @bind="formModel.Adresa" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="descriere">Descriere</label>
+                <textarea id="descriere" class="form-control" rows="5" @bind="formModel.Descriere"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label" for="imagine">Fotografie caracteristica</label>
+                <InputFile id="imagine" class="form-control" OnChange="OnImageSelected" accept="image/*" />
+                @if (!string.IsNullOrWhiteSpace(formModel.Imagine))
+                {
+                    <div class="mt-2">
+                        <img class="admin-cazari-thumb" src="@GetImageUrl(formModel.Imagine)" alt="@formModel.Nume" />
+                        <span class="ms-2 text-muted">@formModel.Imagine</span>
+                    </div>
+                }
+            </div>
+
+            <div class="admin-cazari-actions">
+                <button type="submit" class="btn btn-primary">@SubmitText</button>
+                @if (editId.HasValue)
+                {
+                    <button type="button" class="btn btn-outline-secondary" @onclick="ResetForm">Anuleaza</button>
+                }
+            </div>
+        </form>
+    </section>
+
+    <section class="admin-cazari-list">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Cazări existente</h5>
+            <span class="badge bg-secondary">@cazari.Count</span>
+        </div>
+
+        @if (isLoading)
+        {
+            <p><em>Se încarcă spațiile de cazare...</em></p>
+        }
+        else if (!cazari.Any())
+        {
+            <p><em>Nu există cazări.</em></p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead>
+                    <tr>
+                        <th>Foto</th>
+                        <th>Nume</th>
+                        <th>Adresa</th>
+                        <th>Actiuni</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var cazare in cazari)
+                    {
+                        <tr>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(cazare.Imagine))
+                                {
+                                    <img class="admin-cazari-thumb" src="@GetImageUrl(cazare.Imagine)" alt="@cazare.Nume" />
+                                }
+                            </td>
+                            <td>@cazare.Nume</td>
+                            <td>@cazare.Adresa</td>
+                            <td>
+                                <div class="admin-cazari-actions">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => StartEdit(cazare)">Editeaza</button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => DeleteCazareAsync(cazare.Id)">Sterge</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private const long MaxImageSize = 5 * 1024 * 1024;
+
+    private readonly CazareFormModel formModel = new();
+    private readonly List<Cazare> cazari = new();
+    private IBrowserFile? selectedImage;
+    private int? editId;
+    private bool isLoading = true;
+    private string? statusMessage;
+    private string statusCssClass = "alert-success";
+
+    private string FormTitle => editId.HasValue ? "Editare cazare" : "Adauga cazare";
+    private string SubmitText => editId.HasValue ? "Salveaza modificarile" : "Adauga cazare";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCazariAsync();
+    }
+
+    private async Task LoadCazariAsync()
+    {
+        isLoading = true;
+        cazari.Clear();
+
+        cazari.AddRange(await DbContext.Cazari
+            .AsNoTracking()
+            .OrderBy(o => o.Nume)
+            .ToListAsync());
+
+        isLoading = false;
+    }
+
+    private void OnImageSelected(InputFileChangeEventArgs args)
+    {
+        selectedImage = args.File;
+    }
+
+    private async Task SaveCazareAsync()
+    {
+        if (string.IsNullOrWhiteSpace(formModel.Nume) ||
+            string.IsNullOrWhiteSpace(formModel.Adresa) ||
+            string.IsNullOrWhiteSpace(formModel.Descriere))
+        {
+            SetStatus("Completează denumirea, adresa și descrierea.", false);
+            return;
+        }
+
+        var imageName = formModel.Imagine;
+
+        if (selectedImage is not null)
+        {
+            try
+            {
+                imageName = await SaveImageAsync(selectedImage);
+            }
+            catch (InvalidOperationException ex)
+            {
+                SetStatus(ex.Message, false);
+                return;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(imageName))
+        {
+            SetStatus("Alege o fotografie pentru cazare.", false);
+            return;
+        }
+
+        if (editId.HasValue)
+        {
+            var cazare = await DbContext.Cazari.FindAsync(editId.Value);
+
+            if (cazare is null)
+            {
+                SetStatus("Spațiul de cazare selectat nu mai există.", false);
+                ResetForm();
+                await LoadCazariAsync();
+                return;
+            }
+
+            var oldImage = cazare.Imagine;
+
+            cazare.Nume = formModel.Nume.Trim();
+            cazare.Adresa = formModel.Adresa.Trim();
+            cazare.Descriere = formModel.Descriere.Trim();
+            cazare.Imagine = imageName;
+
+            await DbContext.SaveChangesAsync();
+
+            if (selectedImage is not null && !string.Equals(oldImage, imageName, StringComparison.OrdinalIgnoreCase))
+            {
+                DeleteImage(oldImage);
+            }
+
+            SetStatus("Spațiul de cazare a fost actualizat.", true);
+        }
+        else
+        {
+            DbContext.Cazari.Add(new Cazare
+            {
+                Nume = formModel.Nume.Trim(),
+                Adresa = formModel.Adresa.Trim(),
+                Descriere = formModel.Descriere.Trim(),
+                Imagine = imageName
+            });
+
+            await DbContext.SaveChangesAsync();
+            SetStatus("Cazarea a fost adaugată.", true);
+        }
+
+        ResetForm();
+        await LoadCazariAsync();
+    }
+
+    private void StartEdit(Cazare cazare)
+    {
+        editId = cazare.Id;
+        selectedImage = null;
+        formModel.Nume = cazare.Nume;
+        formModel.Adresa = cazare.Adresa;
+        formModel.Descriere = cazare.Descriere;
+        formModel.Imagine = cazare.Imagine;
+        statusMessage = null;
+    }
+
+    private async Task DeleteCazareAsync(int id)
+    {
+        var cazare = await DbContext.Cazari.FindAsync(id);
+
+        if (cazare is null)
+        {
+            SetStatus("Cazarea selectată nu mai există.", false);
+            await LoadCazariAsync();
+            return;
+        }
+
+        DbContext.Cazari.Remove(cazare);
+        await DbContext.SaveChangesAsync();
+        DeleteImage(cazare.Imagine);
+
+        if (editId == id)
+        {
+            ResetForm();
+        }
+
+        SetStatus("Spațiul de cazare a fost șters.", true);
+        await LoadCazariAsync();
+    }
+
+    private async Task<string> SaveImageAsync(IBrowserFile file)
+    {
+        if (file.Size > MaxImageSize)
+        {
+            throw new InvalidOperationException("Fotografia trebuie sa aiba cel mult 5 MB.");
+        }
+
+        var extension = Path.GetExtension(file.Name).ToLowerInvariant();
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+
+        if (!allowedExtensions.Contains(extension))
+        {
+            throw new InvalidOperationException("Formatul fotografiei trebuie sa fie JPG, PNG, WEBP sau GIF.");
+        }
+
+        var fileName = $"{Guid.NewGuid():N}{extension}";
+        var directoryPath = Path.Combine(Environment.WebRootPath, "images", "cazari");
+        Directory.CreateDirectory(directoryPath);
+
+        var filePath = Path.Combine(directoryPath, fileName);
+
+        await using var stream = File.Create(filePath);
+        await file.OpenReadStream(MaxImageSize).CopyToAsync(stream);
+
+        return fileName;
+    }
+
+    private void DeleteImage(string? imageName)
+    {
+        if (string.IsNullOrWhiteSpace(imageName))
+        {
+            return;
+        }
+
+        var fileName = Path.GetFileName(imageName);
+        var filePath = Path.Combine(Environment.WebRootPath, "images", "cazari", fileName);
+
+        if (File.Exists(filePath))
+        {
+            File.Delete(filePath);
+        }
+    }
+
+    private string GetImageUrl(string imageName)
+    {
+        return $"/images/cazari/{Path.GetFileName(imageName)}";
+    }
+
+    private void ResetForm()
+    {
+        editId = null;
+        selectedImage = null;
+        formModel.Nume = string.Empty;
+        formModel.Adresa = string.Empty;
+        formModel.Descriere = string.Empty;
+        formModel.Imagine = string.Empty;
+    }
+
+    private void SetStatus(string message, bool isSuccess)
+    {
+        statusMessage = message;
+        statusCssClass = isSuccess ? "alert-success" : "alert-danger";
+    }
+
+    private sealed class CazareFormModel
+    {
+        public string Nume { get; set; } = string.Empty;
+
+        public string Adresa { get; set; } = string.Empty;
+
+        public string Descriere { get; set; } = string.Empty;
+
+        public string Imagine { get; set; } = string.Empty;
+    }
+}

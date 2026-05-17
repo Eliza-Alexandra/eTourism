@@ -1,0 +1,132 @@
+@using eTourismWebApp.Services
+@{
+    var containerStyle = $"height: {Height}px; position: relative;";
+}
+
+<MudContainer Style="@containerStyle">
+    <MudStack Spacing="2">
+        @if (!string.IsNullOrEmpty(Title))
+        {
+            <MudText Typo="Typo.subtitle1" Color="Color.Primary" Class="chart-title">
+                @Title
+            </MudText>
+        }
+        
+        <!-- SVG Line Chart -->
+        <svg width="100%" height="@(Height - 40)" viewBox="0 0 @(Width) @(Height - 40)" class="line-chart">
+            <!-- Grid Lines -->
+            @for (int i = 0; i <= 5; i++)
+            {
+                var y = i * (Height - 40) / 5;
+                var yLabel = (5-i) * 20;
+                <line x1="40" y1="@y" x2="@Width" y2="@y" stroke="#e0e0e0" stroke-width="1"/>
+                <tspan x="30" y="@y" text-anchor="end" fill="#666" font-size="12">@yLabel</tspan>
+            }
+            
+            <!-- Data Line -->
+            <polyline
+                points="@GetPolylinePoints()"
+                fill="none"
+                stroke="#1976d2"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"/>
+            
+            <!-- Data Points -->
+            @foreach (var point in ChartData.DataPoints)
+            {
+                var x = 40 + (point.Index * (Width - 80) / (ChartData.DataPoints.Count - 1));
+                var y = (Height - 40) - (point.Value * (Height - 40) / 100);
+                
+                <circle cx="@x" cy="@y" r="5" fill="#1976d2" class="data-point"/>
+                <circle cx="@x" cy="@y" r="8" fill="transparent" class="data-point-hover"/>
+                
+                <!-- Tooltip -->
+                <g class="tooltip" visibility="hidden">
+                    <rect x="@(x - 30)" y="@(y - 35)" width="60" height="25" fill="white" stroke="#ccc" rx="4"/>
+                    <text x="@x" y="@(y - 18)" text-anchor="middle" font-size="11" fill="#333">@point.Value.ToString("F0")</text>
+                </g>
+            }
+            
+            <!-- X-axis labels -->
+            @foreach (var point in ChartData.DataPoints)
+            {
+                var x = 40 + (point.Index * (Width - 80) / (ChartData.DataPoints.Count - 1));
+                var yLabelPos = Height - 20;
+                <tspan x="@x" y="@yLabelPos" text-anchor="middle" fill="#666" font-size="12">@point.Label</tspan>
+            }
+        </svg>
+        
+        <!-- Legend -->
+        @if (ChartData.Legend.Any())
+        {
+            <MudStack Row="true" Justify="Justify.Center" Class="mt-2">
+                @foreach (var item in ChartData.Legend)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mr-3">
+                        <div style="width: 12px; height: 12px; background-color: @item.Color; border-radius: 2px;"></div>
+                        <MudText Typo="Typo.caption">@item.Label</MudText>
+                    </MudStack>
+                }
+            </MudStack>
+        }
+    </MudStack>
+</MudContainer>
+
+<style>
+    .line-chart {
+        background: white;
+        border-radius: 4px;
+    }
+    
+    .data-point {
+        transition: all 0.2s ease;
+    }
+    
+    .data-point:hover {
+        //r: 10;
+        fill: #1565c0;
+    }
+    
+    .data-point-hover:hover + .tooltip {
+        visibility: visible;
+    }
+    
+    .chart-title {
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public ChartData ChartData { get; set; } = new();
+
+    [Parameter]
+    public int Height { get; set; } = 300;
+
+    [Parameter]
+    public int Width { get; set; } = 800;
+
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    private string GetPolylinePoints()
+    {
+        if (!ChartData.DataPoints.Any()) return "";
+
+        var points = ChartData.DataPoints.Select(point =>
+        {
+            var x = 40 + (point.Index * (Width - 80) / (ChartData.DataPoints.Count - 1));
+            var y = (Height - 40) - (point.Value * (Height - 40) / 100);
+            return $"{x},{y}";
+        });
+
+        return string.Join(" ", points);
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (Width == 0) Width = 800; // Default width
+    }
+}

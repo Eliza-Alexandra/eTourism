@@ -1,0 +1,175 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<MudList T="string">
+    <MudListSubheader>
+        <br>
+        <MudText Typo="Typo.h6" Color="Color.Dark">Meniu principal</MudText>
+    </MudListSubheader>
+
+    <MudDivider Class="my-2"/>
+
+    @if (isAdmin)
+    {
+        <MudListItem T="string">
+            <MudLink Href="/" Underline="Underline.None" Color="Color.Inherit">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.Dashboard" Size="Size.Small"/>
+                    <MudText>Acasă</MudText>
+                </MudStack>
+            </MudLink>
+        </MudListItem>
+    }
+
+    @if (canSeeUserModules)
+    {
+        <MudListItem T="string">
+            <MudLink Href="/Vreme" Underline="Underline.None" Color="Color.Inherit">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.WbCloudy" Size="Size.Small"/>
+                    <MudText>Vreme</MudText>
+                </MudStack>
+            </MudLink>
+        </MudListItem>
+
+        <MudListItem T="string">
+            <MudLink Href="/Cazari" Underline="Underline.None" Color="Color.Inherit">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.Bed" Size="Size.Small"/>
+                    <MudText>Cazări</MudText>
+                </MudStack>
+            </MudLink>
+        </MudListItem>
+
+        <MudListItem T="string">
+            <MudLink Href="/Obiective" Underline="Underline.None" Color="Color.Inherit">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.Landscape" Size="Size.Small"/>
+                    <MudText>Obiective</MudText>
+                </MudStack>
+            </MudLink>
+        </MudListItem>
+    }
+
+    @if (isAdmin)
+    {
+        <MudListItem T="string">
+            <MudLink Href="/AdminObiective" Underline="Underline.None" Color="Color.Inherit">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.EditLocationAlt" Size="Size.Small"/>
+                    <MudText>Admin Obiective</MudText>
+                </MudStack>
+            </MudLink>
+        </MudListItem>
+
+        <MudListItem T="string">
+            <MudLink Href="/AdminCazari" Underline="Underline.None" Color="Color.Inherit">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.OtherHouses" Size="Size.Small"/>
+                    <MudText>Admin Cazări</MudText>
+                </MudStack>
+            </MudLink>
+        </MudListItem>
+
+        <MudListItem T="string">
+            <MudLink Href="/Utilizatori" Underline="Underline.None" Color="Color.Inherit">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small"/>
+                    <MudText>Utilizatori</MudText>
+                </MudStack>
+            </MudLink>
+        </MudListItem>
+
+        <MudListItem T="string">
+            <MudLink Href="/Statistici" Underline="Underline.None" Color="Color.Inherit">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Small"/>
+                    <MudText>Statistici</MudText>
+                </MudStack>
+            </MudLink>
+        </MudListItem>
+
+        <MudListItem T="string">
+            <MudLink Href="/Notificari" Underline="Underline.None" Color="Color.Inherit">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.Notifications" Size="Size.Small"/>
+                    <MudText>Notificari</MudText>
+                </MudStack>
+            </MudLink>
+        </MudListItem>
+    }
+
+    <MudDivider Class="my-2"/>
+
+    <MudListSubheader>
+        <MudText Typo="Typo.subtitle1" Color="Color.Surface">Utilizator</MudText>
+    </MudListSubheader>
+
+    @if (isAuthenticated)
+    {
+        <MudListItem T="string">
+            <MudLink Href="/Identity/Account/Manage" Underline="Underline.None" Color="Color.Inherit">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.AccountCircle" Size="Size.Small"/>
+                    <MudText>Profil</MudText>
+                </MudStack>
+            </MudLink>
+        </MudListItem>
+
+        <MudListItem T="string">
+            <MudLink Href="/Identity/Account/Logout" Underline="Underline.None" Color="Color.Inherit">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small"/>
+                    <MudText>Logout</MudText>
+                </MudStack>
+            </MudLink>
+        </MudListItem>
+    }
+    else
+    {
+        <MudListItem T="string">
+            <MudLink Href="/Identity/Account/Login" Underline="Underline.None" Color="Color.Inherit">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.Login" Size="Size.Small"/>
+                    <MudText>Login</MudText>
+                </MudStack>
+            </MudLink>
+        </MudListItem>
+    }
+
+    <MudDivider Class="my-2"/>
+
+    <MudListSubheader>
+    <MudText Typo="Typo.subtitle1" Color="Color.Surface">Contact</MudText>
+    </MudListSubheader>
+
+    <MudListItem Href="https://www.instagram.com/hai_la_brasov?igsh=dXdqZ3FwdHkycTF6" Target="_blank">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+            <MudIcon Size="Size.Medium" Class="mr-2" Color="Color.Error">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24" width="24" viewBox="0 0 448 512">
+                    <path fill="currentColor"
+                          d="M224,202.66A53.34,53.34,0,1,0,277.34,256,53.38,53.38,0,0,0,224,202.66Zm124.71-41a54,54,0,0,0-30.41-30.41C293.19,120,224,120,224,120s-69.19,0-94.3,11.25a54,54,0,0,0-30.41,30.41C88,157.81,88,224,88,224s0,66.19,11.25,91.3a54,54,0,0,0,30.41,30.41C154.81,360,224,360,224,360s69.19,0,94.3-11.25a54,54,0,0,0,30.41-30.41C360,290.19,360,224,360,224S360,157.81,348.71,161.66ZM224,338a82,82,0,1,1,82-82A82,82,0,0,1,224,338Zm85.34-148.66a19.2,19.2,0,1,1,19.2-19.2A19.2,19.2,0,0,1,309.34,189.34Z"/>
+                </svg>
+            </MudIcon>
+            <MudText>Instagram</MudText>
+        </MudStack>
+    </MudListItem>
+
+</MudList>
+
+@code {
+    private bool isAuthenticated;
+    private bool canSeeUserModules;
+    private bool isAdmin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        isAuthenticated = user.Identity?.IsAuthenticated ?? false;
+        isAdmin = user.IsInRole("Admin");
+        canSeeUserModules = isAdmin || user.IsInRole("User");
+    }
+}

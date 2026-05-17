@@ -1,0 +1,115 @@
+@using eTourismWebApp.Services
+@{
+    var containerStyle = $"height: {Height}px; position: relative;";
+}
+
+<MudContainer Style="@containerStyle">
+    <MudStack Spacing="2">
+        @if (!string.IsNullOrEmpty(Title))
+        {
+            <MudText Typo="Typo.subtitle1" Color="Color.Primary" Class="chart-title">
+                @Title
+            </MudText>
+        }
+        
+        <!-- SVG Bar Chart -->
+        <svg width="100%" height="@(Height - 40)" viewBox="0 0 @(Width) @(Height - 40)" class="bar-chart">
+            <!-- Grid Lines -->
+            @for (int i = 0; i <= 5; i++)
+            {
+                var y = i * (Height - 40) / 5;
+                var yLabel = (5-i) * 20;
+                <line x1="40" y1="@y" x2="@Width" y2="@y" stroke="#e0e0e0" stroke-width="1"/>
+                <tspan x="30" y="@y" text-anchor="end" fill="#666" font-size="12">@yLabel</tspan>
+            }
+            
+            <!-- Bars -->
+            @foreach (var point in ChartData.DataPoints)
+            {
+                var barWidth = (Width - 80) / ChartData.DataPoints.Count * 0.6;
+                var barSpacing = (Width - 80) / ChartData.DataPoints.Count;
+                var x = 40 + (point.Index * barSpacing) + (barSpacing - barWidth) / 2;
+                var barHeight = point.Value * (Height - 40) / 100;
+                var y = (Height - 40) - barHeight;
+                var valueLabel = point.Value.ToString("F0");
+                var xLabelPos = x + barWidth/2;
+                var yLabelPos = y - 5;
+                var xLabelPos2 = x + barWidth/2;
+                var yLabelPos2 = Height - 20;
+                
+                <rect x="@x" y="@y" width="@barWidth" height="@barHeight" 
+                      fill="@GetColorForIndex(point.Index)" 
+                      class="bar"
+                      rx="2">
+                    <title>@point.Label: @point.Value</title>
+                </rect>
+                
+                <!-- Value label on top of bar -->
+                <tspan x="@xLabelPos" y="@yLabelPos" text-anchor="middle" font-size="11" fill="#333" font-weight="600">
+                    @valueLabel
+                </tspan>
+                
+                <!-- X-axis label -->
+                <tspan x="@xLabelPos2" y="@yLabelPos2" text-anchor="middle" fill="#666" font-size="12">
+                    @point.Label
+                </tspan>
+            }
+            
+            <!-- Axes -->
+            <line x1="40" y1="0" x2="40" y2="@(Height - 40)" stroke="#333" stroke-width="2"/>
+            <line x1="40" y1="@(Height - 40)" x2="@Width" y2="@(Height - 40)" stroke="#333" stroke-width="2"/>
+        </svg>
+    </MudStack>
+</MudContainer>
+
+<style>
+    .bar-chart {
+        background: white;
+        border-radius: 4px;
+    }
+    
+    .bar {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .bar:hover {
+        opacity: 0.8;
+        filter: brightness(1.1);
+    }
+    
+    .chart-title {
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public ChartData ChartData { get; set; } = new();
+
+    [Parameter]
+    public int Height { get; set; } = 250;
+
+    [Parameter]
+    public int Width { get; set; } = 800;
+
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    private string GetColorForIndex(int index)
+    {
+        var colors = new[]
+        {
+            "#1976d2", "#388e3c", "#f57c00", "#d32f2f", "#7b1fa2",
+            "#00796b", "#c2185b", "#ff6f00", "#455a64", "#5d4037"
+        };
+        
+        return colors[index % colors.Length];
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (Width == 0) Width = 800; // Default width
+    }
+}

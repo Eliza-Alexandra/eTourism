@@ -1,0 +1,117 @@
+@using eTourismWebApp.Components.Dashboard
+
+<MudCard Elevation="3" Class="stats-card-hover" Style="cursor: pointer;" OnClick="OnCardClick">
+    <MudCardContent Class="pa-4">
+        <MudStack Justify="Justify.SpaceBetween" Class="mb-2">
+            <MudIcon 
+                Icon="@Icon" 
+                Size="Size.Large" 
+                Color="@Color"
+                Class="stats-icon"/>
+            
+            @if (!string.IsNullOrEmpty(Trend))
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="trend-badge">
+                    <MudIcon 
+                        Icon="@GetTrendIcon()" 
+                        Size="Size.Small" 
+                        Color="@GetTrendColor()"
+                        Class="mr-1"/>
+                    <MudText 
+                        Typo="Typo.caption" 
+                        Color="@GetTrendColor()"
+                        Class="trend-text">
+                        @Trend
+                    </MudText>
+                </MudStack>
+            }
+        </MudStack>
+        
+        <MudStack Spacing="1">
+            <MudText Typo="Typo.h4" Color="Color.Dark" Class="stats-value">
+                @Value
+            </MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="stats-title">
+                @Title
+            </MudText>
+        </MudStack>
+    </MudCardContent>
+</MudCard>
+
+<style>
+    .stats-card-hover:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .stats-icon {
+        opacity: 0.8;
+    }
+    
+    .trend-badge {
+        background-color: rgba(255,255,255,0.9);
+        padding: 2px 6px;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .trend-text {
+        font-weight: 600;
+    }
+    
+    .stats-value {
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    
+    .stats-title {
+        font-weight: 500;
+        opacity: 0.8;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Value { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Icon { get; set; } = Icons.Material.Filled.Info;
+
+    [Parameter]
+    public Color Color { get; set; } = Color.Primary;
+
+    [Parameter]
+    public string Trend { get; set; } = string.Empty;
+
+    [Parameter]
+    public TrendDirection TrendDirection { get; set; } = TrendDirection.Up;
+
+    [Parameter]
+    public EventCallback OnCardClick { get; set; }
+
+    private string GetTrendIcon()
+    {
+        return TrendDirection switch
+        {
+            TrendDirection.Up => Icons.Material.Filled.TrendingUp,
+            TrendDirection.Down => Icons.Material.Filled.TrendingDown,
+            TrendDirection.Stable => Icons.Material.Filled.TrendingFlat,
+            _ => Icons.Material.Filled.TrendingUp
+        };
+    }
+
+    private Color GetTrendColor()
+    {
+        return TrendDirection switch
+        {
+            TrendDirection.Up => Color.Success,
+            TrendDirection.Down => Color.Error,
+            TrendDirection.Stable => Color.Warning,
+            _ => Color.Secondary
+        };
+    }
+}

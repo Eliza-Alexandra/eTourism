@@ -1,0 +1,97 @@
+@page "/Cazari"
+@using Microsoft.EntityFrameworkCore
+@using eTourismWebApp.Data
+@using Microsoft.AspNetCore.Authorization
+@inject eTourismWebApp.Data.eTourismWebAppContext DbContext
+
+<style>
+    .cazare-card {
+        transition: transform 0.2s;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .cazare-card:hover {
+        transform: scale(1.02);
+    }
+
+    .cazare-img {
+        height: 250px;
+        object-fit: cover;
+    }
+
+    .card-text {
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 6;
+        -webkit-box-orient: vertical;
+    }
+</style>
+
+<PageTitle>Cazări în Brașov</PageTitle>
+
+<h1 class="mb-4">Cazări</h1>
+
+@if (cazari == null)
+{
+    <p><em>Se încarcă...</em></p>
+}
+else if (!cazari.Any())
+{
+    <p><em>Nu există cazări.</em></p>
+}
+else
+{
+    <MudGrid>
+        @foreach (var obj in cazari)
+        {
+            <MudItem xs="12" sm="6">
+                <div class="card shadow cazare-card h-100">
+
+                    <img src="/images/cazari/@obj.Imagine"
+                         class="card-img-top cazare-img"
+                         alt="@obj.Nume">
+
+                    <div class="card-body d-flex flex-column">
+
+                        <h3 class="card-title">@obj.Nume</h3><br/>
+
+                        <p>
+                            <strong>Adresă:</strong>
+                            <a href="@obj.Adresa" target="_blank" style="color: #1a73e8; text-decoration: underline;">
+                                @obj.Adresa
+                            </a><br />
+                        </p>
+                        <p class="card-text">@obj.Descriere</p>
+
+                    </div>
+                </div>
+            </MudItem>
+        }
+    </MudGrid>
+
+    <div class="mt-3">
+        <strong>Total cazari:</strong> @cazari.Count
+    </div>
+}
+
+@code {
+
+    private List<Cazare>? cazari;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            cazari = await DbContext.Cazari
+                .AsNoTracking()
+                .OrderBy(o => o.Nume)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            cazari = new List<Cazare>();
+        }
+    }
+}

@@ -1,0 +1,13 @@
+﻿<h3>RedirectToLogin</h3>
+@inject NavigationManager Nav
+
+@code {
+    protected override void OnInitialized()
+    {
+        // returnUrl = pagina cerută (ex: "/")
+        var relative = Nav.ToBaseRelativePath(Nav.Uri);
+        var returnUrl = string.IsNullOrEmpty(relative) ? "/" : "/" + relative;
+
+        Nav.NavigateTo($"/Identity/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}", forceLoad: true);
+    }
+}

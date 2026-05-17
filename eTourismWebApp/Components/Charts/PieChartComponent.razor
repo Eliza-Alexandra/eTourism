@@ -1,0 +1,140 @@
+@using eTourismWebApp.Services
+@{
+    var containerStyle = $"height: {Height}px; position: relative;";
+}
+
+<MudContainer Style="@containerStyle">
+    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height: 100%;">
+        <!-- SVG Pie Chart -->
+        <svg width="@(Height - 40)" height="@(Height - 40)" viewBox="0 0 @(Height - 40) @(Height - 40)" class="pie-chart">
+            @foreach (var slice in GetPieSlices())
+            {
+                <path d="@slice.PathData" 
+                      fill="@slice.Color" 
+                      stroke="white" 
+                      stroke-width="2"
+                      class="pie-slice">
+                    <title>@slice.Label: @slice.Value%</title>
+                </path>
+            }
+            
+            <!-- Center circle for donut effect -->
+            <circle cx="@(Height/2 - 20)" cy="@(Height/2 - 20)" r="@(Height/4 - 10)" fill="white"/>
+            
+            <!-- Center text -->
+            <text x="@(Height/2 - 20)" y="@(Height/2 - 25)" text-anchor="middle" font-size="24" font-weight="bold" fill="#333">
+                @ChartData.DataPoints.Sum(x => x.Value)
+            </text>
+            <text x="@(Height/2 - 20)" y="@(Height/2 - 10)" text-anchor="middle" font-size="12" fill="#666">
+                Total
+            </text>
+        </svg>
+        
+        <!-- Legend -->
+        <MudStack Spacing="1" Class="mt-4">
+            @foreach (var item in ChartData.DataPoints)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <div style="width: 12px; height: 12px; background-color: @GetColorForIndex(item.Index); border-radius: 2px;" class="mr-2"></div>
+                    <MudText Typo="Typo.body2">@item.Label: @item.Value</MudText>
+                </MudStack>
+            }
+        </MudStack>
+    </MudStack>
+</MudContainer>
+
+<style>
+    .pie-chart {
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+    }
+    
+    .pie-slice {
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .pie-slice:hover {
+        filter: brightness(1.1);
+        transform: scale(1.02);
+        transform-origin: center;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public ChartData ChartData { get; set; } = new();
+
+    [Parameter]
+    public int Height { get; set; } = 300;
+
+    private List<PieSlice> GetPieSlices()
+    {
+        var slices = new List<PieSlice>();
+        var total = ChartData.DataPoints.Sum(x => x.Value);
+        double currentAngle = -90; // Start from top
+
+        for (int i = 0; i < ChartData.DataPoints.Count; i++)
+        {
+            var point = ChartData.DataPoints[i];
+            var percentage = total > 0 ? (point.Value / total) * 100 : 0;
+            var angleSpan = (percentage / 100) * 360;
+            
+            var slice = CreatePieSlice(currentAngle, currentAngle + angleSpan, Height - 40, GetColorForIndex(i), point.Label, point.Value);
+            slices.Add(slice);
+            
+            currentAngle += angleSpan;
+        }
+
+        return slices;
+    }
+
+    private PieSlice CreatePieSlice(double startAngle, double endAngle, double radius, string color, string label, double value)
+    {
+        var centerX = radius / 2;
+        var centerY = radius / 2;
+        var innerRadius = radius / 4 - 10;
+        
+        var startAngleRad = (startAngle * Math.PI) / 180;
+        var endAngleRad = (endAngle * Math.PI) / 180;
+        
+        var x1 = centerX + innerRadius * Math.Cos(startAngleRad);
+        var y1 = centerY + innerRadius * Math.Sin(startAngleRad);
+        var x2 = centerX + radius * Math.Cos(startAngleRad);
+        var y2 = centerY + radius * Math.Sin(startAngleRad);
+        var x3 = centerX + radius * Math.Cos(endAngleRad);
+        var y3 = centerY + radius * Math.Sin(endAngleRad);
+        var x4 = centerX + innerRadius * Math.Cos(endAngleRad);
+        var y4 = centerY + innerRadius * Math.Sin(endAngleRad);
+        
+        var largeArcFlag = endAngle - startAngle > 180 ? 1 : 0;
+        
+        var pathData = $"M {x1} {y1} L {x2} {y2} A {radius} {radius} 0 {largeArcFlag} 1 {x3} {y3} L {x4} {y4} A {innerRadius} {innerRadius} 0 {largeArcFlag} 0 {x1} {y1}";
+        
+        return new PieSlice
+        {
+            PathData = pathData,
+            Color = color,
+            Label = label,
+            Value = value
+        };
+    }
+
+    private string GetColorForIndex(int index)
+    {
+        var colors = new[]
+        {
+            "#1976d2", "#388e3c", "#f57c00", "#d32f2f", "#7b1fa2",
+            "#00796b", "#c2185b", "#ff6f00", "#455a64", "#5d4037"
+        };
+        
+        return colors[index % colors.Length];
+    }
+
+    public class PieSlice
+    {
+        public string PathData { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+        public double Value { get; set; }
+    }
+}

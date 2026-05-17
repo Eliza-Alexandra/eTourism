@@ -1,0 +1,84 @@
+﻿@page "/Vreme"
+
+<PageTitle>Vreme</PageTitle>
+
+<MudPaper Class="pa-6" Elevation="4" Style="border-radius: 12px;">
+    <MudText Typo="Typo.h4" Class="mb-4">Vremea în Brașov în urmatoarele 7 zile</MudText>
+
+    @if (forecasts == null)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+    }
+    else
+    {
+        <MudGrid>
+            @foreach (var forecast in forecasts)
+            {
+                <MudItem xs="12" sm="6" md="4" lg="3">
+                    <MudCard Class="mb-4" Style="border-radius: 12px;">
+                        <MudCardContent>
+
+                            <MudText Typo="Typo.h6" Align="Align.Center">
+                                @forecast.Date.ToLongDateString()
+                            </MudText>
+
+                            <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Primary">
+                                @forecast.TemperatureC°C
+                            </MudText>
+
+                            <MudIcon Icon="@GetWeatherIcon(forecast.Summary)"
+                                     Color="Color.Info"
+                                     Class="d-flex mx-auto my-2"
+                                     Size="Size.Large" />
+
+
+                            <MudText Align="Align.Center" Typo="Typo.subtitle1">
+                                @forecast.Summary
+                            </MudText>
+
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudPaper>
+
+@code {
+    private WeatherForecast[]? forecasts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Delay(500);
+
+        var startDate = DateOnly.FromDateTime(DateTime.Now);
+        var summaries = new[] { "Înnorat", "Însorit", "Cald", "Ploaie", "Vânt", "Cald", "Însorit" };
+
+        forecasts = Enumerable.Range(1, 7).Select(index => new WeatherForecast
+        {
+            Date = startDate.AddDays(index),
+            TemperatureC = Random.Shared.Next(20, 30),
+            Summary = summaries[Random.Shared.Next(summaries.Length)]
+        }).ToArray();
+    }
+
+    private string GetWeatherIcon(string summary)
+    {
+        return summary switch
+        {
+            "Însorit" => Icons.Material.Filled.WbSunny,
+            "Înnorat" => Icons.Material.Filled.Cloud,
+            "Ploaie" => Icons.Material.Filled.Umbrella,
+            "Vânt" => Icons.Material.Filled.Air,
+            "Cald" => Icons.Material.Filled.LocalFireDepartment,
+            _ => Icons.Material.Filled.Help
+        };
+    }
+
+    private class WeatherForecast
+    {
+        public DateOnly Date { get; set; }
+        public int TemperatureC { get; set; }
+        public string? Summary { get; set; }
+    }
+}

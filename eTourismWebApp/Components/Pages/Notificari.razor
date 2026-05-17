@@ -1,0 +1,413 @@
+@page "/Notificari"
+@using eTourismWebApp.Services
+@using eTourismWebApp.Components.Notifications
+@using Microsoft.AspNetCore.Authorization
+@inject INotificationService NotificationService
+@inject ISnackbar Snackbar
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Centru Notificări</PageTitle>
+<h1 class="mb-4">Notificări de sitem</h1>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+    <!-- Header Section -->
+    <MudStack Spacing="4" Class="mb-6">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.h4" Color="Color.Primary">Centru Notificări</MudText>
+                <MudText Typo="Typo.body1">Gestionează toate notificările sistemului în timp real</MudText>
+            </MudStack>
+            
+            <MudStack Row="true" Spacing="2">
+                <MudButton 
+                    Variant="Variant.Outlined" 
+                    Color="Color.Primary"
+                    StartIcon="@Icons.Material.Filled.Refresh"
+                    OnClick="LoadNotifications">
+                    Reîncarcă
+                </MudButton>
+                
+                <MudButton 
+                    Variant="Variant.Filled" 
+                    Color="Color.Error"
+                    StartIcon="@Icons.Material.Filled.ClearAll"
+                    OnClick="ClearAllNotifications"
+                    Disabled="!notifications.Any()">
+                    Șterge Tot
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudStack>
+
+    <!-- Notification Stats Cards -->
+    <MudGrid Spacing="3" Class="mb-6">
+        <MudItem xs="12" sm="6" md="3">
+            <NotificationStatsCard 
+                Title="Notificări Totale" 
+                Value="@notifications.Count.ToString()" 
+                Icon="@Icons.Material.Filled.Notifications" 
+                Color="Color.Primary"/>
+        </MudItem>
+        
+        <MudItem xs="12" sm="6" md="3">
+            <NotificationStatsCard 
+                Title="Necitite" 
+                Value="@unreadCount.ToString()" 
+                Icon="@Icons.Material.Filled.MarkEmailUnread" 
+                Color="Color.Warning"/>
+        </MudItem>
+        
+        <MudItem xs="12" sm="6" md="3">
+            <NotificationStatsCard 
+                Title="Critice" 
+                Value="@criticalCount.ToString()" 
+                Icon="@Icons.Material.Filled.Warning" 
+                Color="Color.Error"/>
+        </MudItem>
+        
+        <MudItem xs="12" sm="6" md="3">
+            <NotificationStatsCard 
+                Title="Astăzi" 
+                Value="@todayCount.ToString()" 
+                Icon="@Icons.Material.Filled.Today" 
+                Color="Color.Success"/>
+        </MudItem>
+    </MudGrid>
+
+    <!-- Filters and Search -->
+    <MudCard Elevation="2" Class="mb-4">
+        <MudCardContent>
+            <MudGrid Spacing="2" AlignItems="AlignItems.Center">
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="searchText" 
+                                  Label="Căutare notificări..." 
+                                  Adornment="Adornment.Start" 
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Immediate="true"/>
+                </MudItem>
+                
+                <MudItem xs="12" md="3">
+                    <MudSelect @bind-Value="selectedType" Label="Tip Notificare" T="string?" Clearable="true">
+                        <MudSelectItem Value="@("Info")">Info</MudSelectItem>
+                        <MudSelectItem Value="@("Success")">Success</MudSelectItem>
+                        <MudSelectItem Value="@("Warning")">Warning</MudSelectItem>
+                        <MudSelectItem Value="@("Error")">Error</MudSelectItem>
+                        <MudSelectItem Value="@("Critical")">Critical</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                
+                <MudItem xs="12" md="3">
+                    <MudSelect @bind-Value="selectedPriority" Label="Prioritate" T="string?" Clearable="true">
+                        <MudSelectItem Value="@("Low")">Scăzută</MudSelectItem>
+                        <MudSelectItem Value="@("Medium")">Medie</MudSelectItem>
+                        <MudSelectItem Value="@("High")">Ridicată</MudSelectItem>
+                        <MudSelectItem Value="@("Urgent")">Urgentă</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                
+                <MudItem xs="12" md="2">
+                    <MudSwitch @bind-Value="showUnreadOnly" Label="Doar necitite"/>
+                </MudItem>
+            </MudGrid>
+        </MudCardContent>
+    </MudCard>
+
+    <!-- Notifications List -->
+    <MudCard Elevation="3">
+        <MudCardHeader>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudText Typo="Typo.h6">Notificări (@filteredNotifications.Count)</MudText>
+                
+                <MudStack Row="true" Spacing="1">
+                    <MudIconButton 
+                        Icon="@Icons.Material.Filled.SelectAll" 
+                        Color="Color.Inherit"
+                        OnClick="ToggleSelectAll"
+                        Title="Selectează tot"/>
+                    <MudIconButton 
+                        Icon="@Icons.Material.Filled.MarkEmailRead" 
+                        Color="Color.Inherit"
+                        OnClick="MarkSelectedAsRead"
+                        Title="Marchează ca citit"/>
+                    <MudIconButton 
+                        Icon="@Icons.Material.Filled.Delete" 
+                        Color="Color.Error"
+                        OnClick="DeleteSelected"
+                        Title="Șterge selectate"/>
+                </MudStack>
+            </MudStack>
+        </MudCardHeader>
+        
+        <MudCardContent Class="pa-0">
+            @if (filteredNotifications.Any())
+            {
+                <MudList T="Notificari.Notification">
+                    @foreach (var notification in filteredNotifications)
+                    {
+                        <NotificationItem 
+                            Notification="@notification" 
+                            OnRead="() => MarkAsRead(notification)"
+                            OnDelete="() => DeleteNotification(notification)"
+                            OnSelect="() => ToggleSelection(notification.Id)"
+                            IsSelected="@selectedNotifications.Contains(notification.Id)"/>
+                    }
+                </MudList>
+                
+                <!-- Pagination -->
+                <MudPagination 
+                    Count="@totalPages" 
+                    @bind-Selected="currentPage"
+                    Class="pa-3"/>
+            }
+            else
+            {
+                <MudContainer Class="pa-8" AlignItems="AlignItems.Center">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.NotificationsOff" Size="Size.Large" Color="Color.Secondary"/>
+                        <MudText Typo="Typo.h6" Color="Color.Secondary">Nu există notificări</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Nu am găsit nicio notificare care să corespundă filtrelor tale</MudText>
+                    </MudStack>
+                </MudContainer>
+            }
+        </MudCardContent>
+    </MudCard>
+
+    <!-- Real-time Notification Toast -->
+    <MudSnackbar/>
+</MudContainer>
+
+@code {
+    private List<Notification> notifications = new();
+    private List<Notification> filteredNotifications = new();
+    private List<string> selectedNotifications = new();
+    private string searchText = string.Empty;
+    private string? selectedType;
+    private string? selectedPriority;
+    private bool showUnreadOnly = false;
+    private int currentPage = 1;
+    private int totalPages = 1;
+
+    // Computed properties
+    private int unreadCount => notifications.Count(n => !n.IsRead);
+    private int criticalCount => notifications.Count(n => n.Type == "Critical");
+    private int todayCount => notifications.Count(n => n.CreatedAt.Date == DateTime.Today);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Console.WriteLine("OnInitializedAsync - Început");
+            Console.WriteLine($"NotificationService este null: {NotificationService == null}");
+            Console.WriteLine($"Snackbar este null: {Snackbar == null}");
+            
+            await LoadNotifications();
+            
+            // Set up real-time updates
+            NotificationService.OnNotificationReceived += HandleNewNotification;
+            
+            // Auto-refresh every 30 seconds
+            var timer = new Timer(async _ => await LoadNotifications(), null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
+            
+            Console.WriteLine("OnInitializedAsync - Finalizat");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Eroare în OnInitializedAsync: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        }
+    }
+
+    private async Task LoadNotifications()
+    {
+        try
+        {
+            Console.WriteLine("Începe încărcarea notificărilor...");
+            notifications = await NotificationService.GetNotificationsAsync();
+            Console.WriteLine($"S-au încărcat {notifications.Count} notificări");
+            ApplyFilters();
+            
+            // Use InvokeAsync to ensure StateHasChanged is called on the UI thread
+            await InvokeAsync(() => StateHasChanged());
+            
+            Console.WriteLine("Încărcare notificări finalizată cu succes");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Eroare la încărcarea notificărilor: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            
+            // Use InvokeAsync for Snackbar as well
+            await InvokeAsync(() => Snackbar.Add("Eroare la încărcarea notificărilor", Severity.Error));
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        var query = notifications.AsQueryable();
+
+        if (!string.IsNullOrEmpty(searchText))
+        {
+            query = query.Where(n => 
+                n.Title.Contains(searchText, StringComparison.OrdinalIgnoreCase) || 
+                n.Message.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrEmpty(selectedType))
+        {
+            query = query.Where(n => n.Type == selectedType);
+        }
+
+        if (!string.IsNullOrEmpty(selectedPriority))
+        {
+            query = query.Where(n => n.Priority == selectedPriority);
+        }
+
+        if (showUnreadOnly)
+        {
+            query = query.Where(n => !n.IsRead);
+        }
+
+        filteredNotifications = query.OrderByDescending(n => n.CreatedAt).ToList();
+        
+        // Update pagination
+        totalPages = (int)Math.Ceiling((double)filteredNotifications.Count / 10);
+    }
+
+    private async Task MarkAsRead(Notification notification)
+    {
+        notification.IsRead = true;
+        await NotificationService.UpdateNotificationAsync(notification);
+        ApplyFilters();
+        StateHasChanged();
+    }
+
+    private async Task DeleteNotification(Notification notification)
+    {
+        await NotificationService.DeleteNotificationAsync(notification.Id);
+        notifications.Remove(notification);
+        ApplyFilters();
+        StateHasChanged();
+        Snackbar.Add("Notificare ștearsă", Severity.Success);
+    }
+
+    private async Task ClearAllNotifications()
+    {
+        var confirmed = await ShowConfirmDialog("Ești sigur că vrei să ștergi toate notificările?");
+        if (confirmed)
+        {
+            await NotificationService.ClearAllNotificationsAsync();
+            await LoadNotifications();
+            Snackbar.Add("Toate notificările au fost șterse", Severity.Success);
+        }
+    }
+
+    private void ToggleSelection(string notificationId)
+    {
+        if (selectedNotifications.Contains(notificationId))
+        {
+            selectedNotifications.Remove(notificationId);
+        }
+        else
+        {
+            selectedNotifications.Add(notificationId);
+        }
+        StateHasChanged();
+    }
+
+    private void ToggleSelectAll()
+    {
+        if (selectedNotifications.Count == filteredNotifications.Count)
+        {
+            selectedNotifications.Clear();
+        }
+        else
+        {
+            selectedNotifications = filteredNotifications.Select(n => n.Id).ToList();
+        }
+        StateHasChanged();
+    }
+
+    private async Task MarkSelectedAsRead()
+    {
+        foreach (var id in selectedNotifications)
+        {
+            var notification = notifications.FirstOrDefault(n => n.Id == id);
+            if (notification != null)
+            {
+                notification.IsRead = true;
+                await NotificationService.UpdateNotificationAsync(notification);
+            }
+        }
+        selectedNotifications.Clear();
+        ApplyFilters();
+        await InvokeAsync(() => StateHasChanged());
+        await InvokeAsync(() => Snackbar.Add("Notificări marcate ca citite", Severity.Success));
+    }
+
+    private async Task DeleteSelected()
+    {
+        var confirmed = await ShowConfirmDialog($"Ești sigur că vrei să ștergi {selectedNotifications.Count} notificări?");
+        if (confirmed)
+        {
+            foreach (var id in selectedNotifications)
+            {
+                await NotificationService.DeleteNotificationAsync(id);
+                notifications.RemoveAll(n => n.Id == id);
+            }
+            selectedNotifications.Clear();
+            ApplyFilters();
+            await InvokeAsync(() => StateHasChanged());
+            await InvokeAsync(() => Snackbar.Add("Notificări șterse", Severity.Success));
+        }
+    }
+
+    private void HandleNewNotification(Notification notification)
+    {
+        notifications.Insert(0, notification);
+        ApplyFilters();
+        
+        // Use InvokeAsync to ensure UI updates happen on the correct thread
+        _ = InvokeAsync(() => 
+        {
+            StateHasChanged();
+            // Show toast notification
+            Snackbar.Add(notification.Title, GetSeverity(notification.Type));
+        });
+    }
+
+    private async Task<bool> ShowConfirmDialog(string message)
+    {
+        // Implementation would use MudDialogService
+        return true; // Simplified for now
+    }
+
+    private Severity GetSeverity(string type)
+    {
+        return type switch
+        {
+            "Error" or "Critical" => Severity.Error,
+            "Warning" => Severity.Warning,
+            "Success" => Severity.Success,
+            _ => Severity.Info
+        };
+    }
+
+    public void Dispose()
+    {
+        NotificationService.OnNotificationReceived -= HandleNewNotification;
+    }
+
+    // Models
+    public class Notification
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Title { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public string Type { get; set; } = "Info";
+        public string Priority { get; set; } = "Medium";
+        public bool IsRead { get; set; } = false;
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public string? Source { get; set; }
+        public Dictionary<string, object> Metadata { get; set; } = new();
+    }
+}

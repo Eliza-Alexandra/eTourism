@@ -1,0 +1,202 @@
+@page "/Statistici"
+@using eTourismWebApp.Services
+@using eTourismWebApp.Components.Dashboard
+@using eTourismWebApp.Components.Charts
+@using Microsoft.AspNetCore.Authorization
+@inject IDashboardService DashboardService
+@inject IChartService ChartService
+@attribute [Authorize(Roles = "Admin")]
+
+<PageTitle>Statistici și grafice</PageTitle>
+<h1 class="mb-4">Statistici și grafice generate de sitem</h1>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+    <!-- Header Section -->
+    <MudStack Spacing="4" Class="mb-6">
+        <MudText Typo="Typo.body1">Vizualizare în timp real a statisticilor sistemului</MudText>
+    </MudStack>
+
+    <!-- Statistics Cards Grid -->
+    <MudGrid Spacing="3" Class="mb-6">
+        <!-- Total Users Card -->
+        <MudItem xs="12" sm="6" md="3">
+            <StatsCard 
+                Title="Utilizatori Totali" 
+                Value="@dashboardStats.TotalUsers.ToString()" 
+                Icon="@Icons.Material.Filled.People" 
+                Color="Color.Primary"
+                Trend="+12%"
+                TrendDirection="TrendDirection.Up"/>
+        </MudItem>
+
+        <!-- Active Sessions Card -->
+        <MudItem xs="12" sm="6" md="3">
+            <StatsCard 
+                Title="Sesiuni Active" 
+                Value="@dashboardStats.ActiveSessions.ToString()" 
+                Icon="@Icons.Material.Filled.Computer" 
+                Color="Color.Success"
+                Trend="+5%"
+                TrendDirection="TrendDirection.Up"/>
+        </MudItem>
+
+        @{
+    var systemLoadValue = $"{dashboardStats.SystemLoad.ToString("F1")}%";
+}
+
+        <!-- System Load Card -->
+        <MudItem xs="12" sm="6" md="3">
+            <StatsCard 
+                Title="Load System" 
+                Value="@systemLoadValue" 
+                Icon="@Icons.Material.Filled.Memory" 
+                Color="Color.Warning"
+                Trend="-2%"
+                TrendDirection="TrendDirection.Down"/>
+        </MudItem>
+
+        <!-- Alerts Card -->
+        <MudItem xs="12" sm="6" md="3">
+            <StatsCard 
+                Title="Alerte Active" 
+                Value="@dashboardStats.AlertCount.ToString()" 
+                Icon="@Icons.Material.Filled.Notifications" 
+                Color="Color.Error"
+                Trend="+3%"
+                TrendDirection="TrendDirection.Up"/>
+        </MudItem>
+    </MudGrid>
+
+    <!-- Charts Section -->
+    <MudGrid Spacing="3">
+        <!-- Line Chart - Activity Over Time -->
+        <MudItem xs="12" md="8">
+            <MudCard Elevation="3">
+                <MudCardHeader>
+                    <MudText Typo="Typo.h6">Activitate Utilizatori - Ultimele 7 Zile</MudText>
+                </MudCardHeader>
+                <MudCardContent>
+                    <LineChartComponent 
+                        ChartData="@activityChartData" 
+                        Height="300"
+                        Title="Activitate Zilnică"/>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Pie Chart - User Distribution -->
+        <MudItem xs="12" md="4">
+            <MudCard Elevation="3">
+                <MudCardHeader>
+                    <MudText Typo="Typo.h6">Distribuție Utilizatori</MudText>
+                </MudCardHeader>
+                <MudCardContent>
+                    <PieChartComponent 
+                        ChartData="@userDistributionData" 
+                        Height="300"/>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Bar Chart - Performance Metrics -->
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="3">
+                <MudCardHeader>
+                    <MudText Typo="Typo.h6">Metrici Performanță</MudText>
+                </MudCardHeader>
+                <MudCardContent>
+                    <BarChartComponent 
+                        ChartData="@performanceData" 
+                        Height="250"/>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Recent Activity Table -->
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="3">
+                <MudCardHeader>
+                    <MudText Typo="Typo.h6">Activitate Recentă</MudText>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTable Items="@recentActivity" Hover="true" Elevation="0" Dense="true">
+                        <HeaderContent>
+                            <MudTh>Utilizator</MudTh>
+                            <MudTh>Acțiune</MudTh>
+                            <MudTh>Data</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.UserName</MudTd>
+                            <MudTd>@context.Action</MudTd>
+                            <MudTd>@context.Timestamp.ToString("HH:mm")</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private DashboardStats dashboardStats = new();
+    private ChartData activityChartData = new();
+    private ChartData userDistributionData = new();
+    private ChartData performanceData = new();
+    private List<RecentActivity> recentActivity = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+        
+        // Simulate real-time updates
+        var timer = new Timer(async _ => await LoadDashboardData(), null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
+    }
+
+    private async Task LoadDashboardData()
+    {
+        try
+        {
+            Console.WriteLine("LoadDashboardData - Început");
+            
+            // Load statistics
+            dashboardStats = await DashboardService.GetStatsAsync();
+            Console.WriteLine($"Dashboard stats loaded: {dashboardStats.TotalUsers} users");
+            
+            // Load chart data
+            activityChartData = await ChartService.GetActivityChartDataAsync();
+            userDistributionData = await ChartService.GetUserDistributionDataAsync();
+            performanceData = await ChartService.GetPerformanceDataAsync();
+            Console.WriteLine("Chart data loaded");
+            
+            // Load recent activity
+            recentActivity = await DashboardService.GetRecentActivityAsync();
+            Console.WriteLine($"Recent activity loaded: {recentActivity.Count} items");
+            
+            // Use InvokeAsync to ensure StateHasChanged is called on the UI thread
+            await InvokeAsync(() => StateHasChanged());
+            Console.WriteLine("LoadDashboardData - Finalizat cu succes");
+        }
+        catch (Exception ex)
+        {
+            // Handle error - show snackbar or log
+            Console.WriteLine($"Error loading dashboard data: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        }
+    }
+
+    // Models
+    public class DashboardStats
+    {
+        public int TotalUsers { get; set; } = 1250;
+        public int ActiveSessions { get; set; } = 89;
+        public decimal SystemLoad { get; set; } = 67.5m;
+        public int AlertCount { get; set; } = 3;
+    }
+
+    public class RecentActivity
+    {
+        public string UserName { get; set; } = string.Empty;
+        public string Action { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; }
+    }
+}

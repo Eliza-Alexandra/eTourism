@@ -1,0 +1,406 @@
+@page "/Utilizatori"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@attribute [Authorize(Roles = "Admin")]
+@inject UserManager<IdentityUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<style>
+    .custom-table {
+        border: 2px solid #dee2e6 !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+    }
+
+    .custom-table th,
+    .custom-table td {
+        border: 1px solid #dee2e6 !important;
+        padding: 12px !important;
+        vertical-align: middle !important;
+    }
+
+    .custom-table thead th {
+        border-bottom: 2px solid #dee2e6 !important;
+        background-color: #343a40 !important;
+        color: white !important;
+        font-weight: bold !important;
+    }
+
+    .custom-table tbody tr:nth-child(even) {
+        background-color: #f8f9fa !important;
+    }
+
+    .custom-table tbody tr:hover {
+        background-color: #e9ecef !important;
+    }
+
+    .user-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .role-select {
+        min-width: 130px;
+    }
+</style>
+
+<PageTitle>Utilizatori</PageTitle>
+
+<h1>Administrare utilizatori</h1>
+
+@if (!string.IsNullOrWhiteSpace(statusMessage))
+{
+    <div class="alert @statusCssClass" role="alert">
+        @statusMessage
+    </div>
+}
+
+@if (users == null)
+{
+    <p><em>Se incarca utilizatorii...</em></p>
+}
+else if (!users.Any())
+{
+    <p><em>Nu exista utilizatori in baza de date.</em></p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table custom-table">
+            <thead>
+            <tr>
+                <th>Email</th>
+                <th>Nume utilizator</th>
+                <th>Rol</th>
+                <th>Email confirmat</th>
+                <th>Status</th>
+                <th>ID</th>
+                <th>Actiuni</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var user in users)
+            {
+                <tr>
+                    <td>@user.Email</td>
+                    <td>@user.UserName</td>
+                    <td>
+                        <select class="form-select form-select-sm role-select"
+                                value="@user.PrimaryRole"
+                                disabled="@IsCurrentUser(user)"
+                                @onchange="args => ChangeRoleAsync(user, args.Value?.ToString())">
+                            <option value="">Fara rol</option>
+                            @foreach (var role in roles)
+                            {
+                                <option value="@role">@role</option>
+                            }
+                        </select>
+                    </td>
+                    <td>
+                        @if (user.EmailConfirmed)
+                        {
+                            <span class="badge bg-success">Da</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Nu</span>
+                        }
+                    </td>
+                    <td>
+                        @if (user.IsLocked)
+                        {
+                            <span class="badge bg-danger">Blocat</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-primary">Activ</span>
+                        }
+                    </td>
+                    <td><code>@user.Id</code></td>
+                    <td>
+                        <div class="user-actions">
+                            @if (!user.EmailConfirmed)
+                            {
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-success"
+                                        @onclick="() => ConfirmEmailAsync(user)">
+                                    Confirma email
+                                </button>
+                            }
+
+                            <button type="button"
+                                    class="btn btn-sm @(user.IsLocked ? "btn-outline-primary" : "btn-outline-warning")"
+                                    disabled="@IsCurrentUser(user)"
+                                    @onclick="() => ToggleLockoutAsync(user)">
+                                @(user.IsLocked ? "Deblocheaza" : "Blocheaza")
+                            </button>
+
+                            @if (pendingDeleteUserId == user.Id)
+                            {
+                                <button type="button"
+                                        class="btn btn-sm btn-danger"
+                                        @onclick="() => DeleteUserAsync(user)">
+                                    Confirma stergerea
+                                </button>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        @onclick="CancelDelete">
+                                    Anuleaza
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        disabled="@IsCurrentUser(user)"
+                                        @onclick="() => RequestDelete(user)">
+                                    Sterge
+                                </button>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mt-3">
+        <p><strong>Total utilizatori:</strong> @users.Count</p>
+    </div>
+}
+
+@code {
+    private List<UserAdminViewModel>? users;
+    private List<string> roles = new();
+    private string? currentUserId;
+    private string? pendingDeleteUserId;
+    private string? statusMessage;
+    private string statusCssClass = "alert-success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        currentUserId = UserManager.GetUserId(authState.User);
+
+        await LoadUsersAsync();
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        try
+        {
+            roles = await RoleManager.Roles
+                .OrderBy(role => role.Name)
+                .Select(role => role.Name!)
+                .ToListAsync();
+
+            var identityUsers = await UserManager.Users
+                .OrderBy(user => user.Email)
+                .ToListAsync();
+
+            var result = new List<UserAdminViewModel>();
+
+            foreach (var identityUser in identityUsers)
+            {
+                var userRoles = await UserManager.GetRolesAsync(identityUser);
+
+                result.Add(new UserAdminViewModel
+                {
+                    Id = identityUser.Id,
+                    Email = identityUser.Email ?? string.Empty,
+                    UserName = identityUser.UserName ?? string.Empty,
+                    EmailConfirmed = identityUser.EmailConfirmed,
+                    IsLocked = identityUser.LockoutEnd.HasValue && identityUser.LockoutEnd > DateTimeOffset.UtcNow,
+                    Roles = userRoles.ToList()
+                });
+            }
+
+            users = result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Eroare la incarcarea utilizatorilor: {ex.Message}");
+            users = new List<UserAdminViewModel>();
+            SetStatus("Nu s-au putut incarca utilizatorii.", false);
+        }
+    }
+
+    private async Task DeleteUserAsync(UserAdminViewModel userModel)
+    {
+        if (IsCurrentUser(userModel))
+        {
+            SetStatus("Nu iti poti sterge propriul cont.", false);
+            return;
+        }
+
+        var user = await UserManager.FindByIdAsync(userModel.Id);
+
+        if (user is null)
+        {
+            SetStatus("Utilizatorul nu mai exista.", false);
+            await LoadUsersAsync();
+            return;
+        }
+
+        var result = await UserManager.DeleteAsync(user);
+        pendingDeleteUserId = null;
+        await HandleIdentityResultAsync(result, "Utilizatorul a fost sters.");
+    }
+
+    private async Task ToggleLockoutAsync(UserAdminViewModel userModel)
+    {
+        if (IsCurrentUser(userModel))
+        {
+            SetStatus("Nu iti poti bloca propriul cont.", false);
+            return;
+        }
+
+        var user = await UserManager.FindByIdAsync(userModel.Id);
+
+        if (user is null)
+        {
+            SetStatus("Utilizatorul nu mai exista.", false);
+            await LoadUsersAsync();
+            return;
+        }
+
+        if (!userModel.IsLocked && !user.LockoutEnabled)
+        {
+            var enableLockoutResult = await UserManager.SetLockoutEnabledAsync(user, true);
+
+            if (!enableLockoutResult.Succeeded)
+            {
+                await HandleIdentityResultAsync(enableLockoutResult, "Utilizatorul a fost blocat.");
+                return;
+            }
+        }
+
+        var lockoutEnd = userModel.IsLocked ? DateTimeOffset.UtcNow.AddYears(-100) : DateTimeOffset.UtcNow.AddYears(100);
+        var result = await UserManager.SetLockoutEndDateAsync(user, lockoutEnd);
+        await HandleIdentityResultAsync(result, userModel.IsLocked ? "Utilizatorul a fost deblocat." : "Utilizatorul a fost blocat.");
+    }
+
+    private async Task ConfirmEmailAsync(UserAdminViewModel userModel)
+    {
+        var user = await UserManager.FindByIdAsync(userModel.Id);
+
+        if (user is null)
+        {
+            SetStatus("Utilizatorul nu mai exista.", false);
+            await LoadUsersAsync();
+            return;
+        }
+
+        user.EmailConfirmed = true;
+        var result = await UserManager.UpdateAsync(user);
+        await HandleIdentityResultAsync(result, "Emailul utilizatorului a fost confirmat.");
+    }
+
+    private async Task ChangeRoleAsync(UserAdminViewModel userModel, string? selectedRole)
+    {
+        if (IsCurrentUser(userModel))
+        {
+            SetStatus("Nu iti poti modifica propriul rol.", false);
+            await LoadUsersAsync();
+            return;
+        }
+
+        var user = await UserManager.FindByIdAsync(userModel.Id);
+
+        if (user is null)
+        {
+            SetStatus("Utilizatorul nu mai exista.", false);
+            await LoadUsersAsync();
+            return;
+        }
+
+        var currentRoles = await UserManager.GetRolesAsync(user);
+        var removeResult = await UserManager.RemoveFromRolesAsync(user, currentRoles);
+
+        if (!removeResult.Succeeded)
+        {
+            await HandleIdentityResultAsync(removeResult, "Rolul utilizatorului a fost actualizat.");
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(selectedRole))
+        {
+            if (!await RoleManager.RoleExistsAsync(selectedRole))
+            {
+                SetStatus("Rolul selectat nu exista.", false);
+                await LoadUsersAsync();
+                return;
+            }
+
+            var addResult = await UserManager.AddToRoleAsync(user, selectedRole);
+
+            if (!addResult.Succeeded)
+            {
+                await HandleIdentityResultAsync(addResult, "Rolul utilizatorului a fost actualizat.");
+                return;
+            }
+        }
+
+        SetStatus("Rolul utilizatorului a fost actualizat.", true);
+        await LoadUsersAsync();
+    }
+
+    private async Task HandleIdentityResultAsync(IdentityResult result, string successMessage)
+    {
+        if (result.Succeeded)
+        {
+            SetStatus(successMessage, true);
+            await LoadUsersAsync();
+            return;
+        }
+
+        var errors = string.Join(" ", result.Errors.Select(error => error.Description));
+        SetStatus($"Operatia nu a reusit. {errors}", false);
+        await LoadUsersAsync();
+    }
+
+    private bool IsCurrentUser(UserAdminViewModel user)
+    {
+        return string.Equals(user.Id, currentUserId, StringComparison.Ordinal);
+    }
+
+    private void RequestDelete(UserAdminViewModel user)
+    {
+        pendingDeleteUserId = user.Id;
+        SetStatus($"Confirma stergerea utilizatorului {user.Email}.", false);
+    }
+
+    private void CancelDelete()
+    {
+        pendingDeleteUserId = null;
+        statusMessage = null;
+    }
+
+    private void SetStatus(string message, bool isSuccess)
+    {
+        statusMessage = message;
+        statusCssClass = isSuccess ? "alert-success" : "alert-danger";
+    }
+
+    private sealed class UserAdminViewModel
+    {
+        public string Id { get; set; } = string.Empty;
+
+        public string Email { get; set; } = string.Empty;
+
+        public string UserName { get; set; } = string.Empty;
+
+        public bool EmailConfirmed { get; set; }
+
+        public bool IsLocked { get; set; }
+
+        public List<string> Roles { get; set; } = new();
+
+        public string PrimaryRole => Roles.FirstOrDefault() ?? string.Empty;
+    }
+}
