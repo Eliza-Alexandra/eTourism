@@ -1,16 +1,22 @@
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
 WORKDIR /src
 
-COPY eTourismWebApp/*.csproj ./eTourismWebApp/
-COPY DataLayer/*.csproj ./DataLayer/
+# Copy csproj files
+COPY eTourismWebApp/eTourismWebApp.csproj ./eTourismWebApp/
+COPY DataLayer/DataLayer.csproj ./DataLayer/
+
+# Restore dependencies
 RUN dotnet restore eTourismWebApp/eTourismWebApp.csproj
 
+# Copy everything
 COPY . .
+
+# Publish
 RUN dotnet publish eTourismWebApp/eTourismWebApp.csproj -c Release -o /app/publish
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 
